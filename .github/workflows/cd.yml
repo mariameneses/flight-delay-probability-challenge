@@ -1,0 +1,52 @@
+name: 'Continuous Delivery'
+
+on:
+  workflow_run:
+    workflows: ["Continuous Integration"]
+    banches:
+      - main
+    types:
+      - completed
+
+env:
+  SERVICE_NAME: delay-model
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2 
+      
+      - id: auth
+        uses: google-github-actions/auth@v1
+        with:
+          service_account: ${{ secrets.SA_EMAIL }}
+          credentials_json: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+      
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+      
+      - name: Docker Auth
+        run: |
+          gcloud config set project ${{ secrets.PROJECT_ID }}
+          gcloud auth configure-docker ${{ secrets.REGION }}-docker.pkg.dev
+      
+      - name: Build and Push Image
+        run: |-
+          docker build -t "${{ secrets.REGION }}-docker.pkg.dev/${{ secrets.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}" .
+          docker push "${{ secrets.REGION }}-docker.pkg.dev/${{ secrets.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+
+      - id: deploy
+        uses: "google-github-actions/deploy-cloudrun@v1"
+        with:
+          service: ${{ env.SERVICE_NAME }} 
+          region: ${{ secrets.REGION }} 
+          image: "${{ secrets.REGION }}-docker.pkg.dev/${{ secrets.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+          flags: "--allow-unauthenticated'"
+
+      - name: Get Url Service
+        run: echo ${{ steps.deploy.outputs.url }}
+  
