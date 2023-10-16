@@ -3,7 +3,7 @@ name: 'Continuous Delivery'
 on:
   workflow_run:
     workflows: ["Continuous Integration"]
-    banches:
+    branches:
       - main
     types:
       - completed
@@ -45,7 +45,7 @@ jobs:
           service: ${{ env.SERVICE_NAME }} 
           region: ${{ secrets.REGION }} 
           image: "${{ secrets.REGION }}-docker.pkg.dev/${{ secrets.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
-          flags: "--allow-unauthenticated'"
+          flags: "--allow-unauthenticated"
 
       - name: Get Url Service
         run: echo ${{ steps.deploy.outputs.url }}
